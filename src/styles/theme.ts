@@ -1,6 +1,6 @@
-import { extendTheme } from '@chakra-ui/react'
+import { DeepPartial, extendTheme, Theme } from '@chakra-ui/react'
 
-export const theme = extendTheme({
+const customTheme: DeepPartial<Theme> = {
   colors: {
     gray: {
       "900": "#181B23",
@@ -19,7 +19,7 @@ export const theme = extendTheme({
     heading: 'Roboto',
     body: 'Roboto'
   },
-  styles: {
+  styles: {    
     global: {
       body: {
         bg: 'gray.900',
@@ -27,4 +27,6 @@ export const theme = extendTheme({
       }
     }
   }
-})
+}
+
+export const theme = extendTheme(customTheme)
