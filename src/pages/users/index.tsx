@@ -97,7 +97,11 @@ export default function UserList() {
                   ))}
                 </Tbody>
               </Table>
-              <Pagination direction={!isWideVersion? "column" : "row"} />
+              <Pagination direction={!isWideVersion? "column" : "row"} 
+                currentPage={2}
+                totalCountOfRegisters={200}
+                onPageChange={() => {}}
+              />
             </>
           )}
         </Box>
