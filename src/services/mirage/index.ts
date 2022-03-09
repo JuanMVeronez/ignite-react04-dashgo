@@ -53,6 +53,8 @@ export function makeServer() {
       });
       this.post('/users');
 
+      this.get('/users/:id');
+
       this.namespace = ''; // usado para dar reset no namespace e fazer com que o next possa usar o 'api' as default
       this.passthrough(); // utilizado no next para que o mirage teste uma chamada e caso não for algo dele passe adiante, sendo puxado pela next api
     }
