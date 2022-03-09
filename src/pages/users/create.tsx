@@ -1,13 +1,17 @@
 import { Box, Button, Divider, Flex, Heading, HStack, SimpleGrid, useBreakpointValue, VStack } from "@chakra-ui/react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 import { SubmitHandler, useForm } from 'react-hook-form';
+import { useMutation } from "react-query";
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 
 import { Input } from "../../components/Form/Input";
 import { Header } from "../../components/Header";
 import { Sidebar } from "../../components/Sidebar";
+import { api } from "../../services/api";
+import { queryClient } from "../../services/queryClient";
 
 type userCreationFormData = {
   name: string;
@@ -24,12 +28,34 @@ const userCreationFormSchema = yup.object().shape({
 });
 
 export default function CreateUser() {
+  const router = useRouter();
+
+  // useMutation faz todo o processo de incerção de dados, sendo que tem vários metodos e retornos úteis para esse processo.
+  // TODO: ver o que mais ele pode fazer
+  const createUser = useMutation(async (user: userCreationFormData) => {
+    const response = await api.post('users', {
+      user: {
+        ...user,
+        created_at: new Date()
+      }
+    });
+
+    return response.data.user;
+  }, {
+    onSuccess: (data) => {
+      // utilizado apenas para invalidar uma query (é dado o fetch pela própria query quando chamada)
+      queryClient.invalidateQueries('users');
+      // da um update nos dados da query
+      // queryClient.setQueryData(['users', 1], data.user);
+    }
+  });
+
   const { register, handleSubmit, formState } = useForm({
     resolver: yupResolver(userCreationFormSchema)
   })
   const handleCreateUser: SubmitHandler<userCreationFormData> = async (values) => {
-    await new Promise((resolve => {setTimeout(resolve, 2000)}));
-    console.log(values);
+    await createUser.mutateAsync(values);
+    router.back()
   }
 
   return (
