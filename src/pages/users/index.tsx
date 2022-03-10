@@ -24,16 +24,26 @@ import NextLink from "next/link";
 import { Header } from "../../components/Header";
 import { Pagination } from "../../components/Pagination";
 import { Sidebar } from "../../components/Sidebar";
-import { useUsers } from "../../services/hooks/useUsers";
+import { getUsers, useUsers } from "../../services/hooks/useUsers";
 import { queryClient } from "../../services/queryClient";
 import { api } from "../../services/api";
+import { GetServerSideProps } from "next";
+import { User } from "../../services/mirage";
 
 const itemsPerPage = 20
 
-export default function UserList() {
+type UserListProps = {
+  users: User[];
+  totalCount: number;
+}
+
+export default function UserList({ users, totalCount }: UserListProps) {
   const [page, setPage] = useState(1);
 
-  const { isLoading, isFetching, error, data} = useUsers({ page, pageItems: itemsPerPage });
+  const { isLoading, isFetching, error, data} = useUsers({ page, pageItems: itemsPerPage }, {
+    // Removido por problemas do mirage com ssr
+    //initialData: {users, totalCount}
+  });
 
   async function handlePrefetchUser(id: string) {
     await queryClient.prefetchQuery(['user', id], async () => {
@@ -145,3 +155,15 @@ export default function UserList() {
     </>
   );
 }
+
+// export const getServerSideProps: GetServerSideProps = async () => {
+//   console.log('here')
+//   const { users, totalCount } = await getUsers(1, itemsPerPage)
+//   console.log(users, totalCount)
+//   return {
+//     props: {
+//       users,
+//       totalCount
+//     }
+//   }
+// }
