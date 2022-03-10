@@ -1,0 +1,23 @@
+## Estratégias de autenticação
+
+- NextAuth
+Solução simples para autenticação, principalmente quando usa apenas JamStack
+Porém, ele não funciona bem para casos de backend próprio (integração com server)
+Sendo assim é recomendado para Jamstack apenas
+Para esse caso recomendado principalmente para login social, disconectando a geração do tokenJWT para esse caso.
+
+- Autenticação pelo backend 
+É feito o envio de dados para login para o backend e esse back é responsável pela autenticação e por devolver um JWT, que vai ser usado depois como chave de acesso até que esse Token expire.
+
+### Formas de guardar os tokens
+
+um token é um valor, normalmente enviado pelo backend, que deve ser referenciado e armazenado pelo frontend enquanto estiver ativo, pois muitas vezes é utilizado para todas as requisições que exijam que o usuário esteja ativo.
+
+- armazenado normalmente em uma dessas: localStorage, sessionStorage, cookies
+
+### Explicando JWT e Refresh Token
+
+* O JWT é um token de acesso, que dentro dele guarda uma chave secret, guardada por uma criptografia e uma data de expiração. Quando esse Token passa dessa data ele não é mais válido, sendo que o JWT deve ser Stateless (não guardar estado) sendo assim ele não deve deixar nenhum rastro no backend ou front, não tendo registro de quais já foram usados.
+
+* Já o Refresh Token normalmente é enviado junto com o JWT no momento do login, esse token é responsável por ser uma forma mapeada de fazer o processo de refresh, apenas uma vez. Sendo assim esse token é guardado em banco, tendo um tempo de expiração maior que o JWT, sendo que ele é revogado no momento que é usado para pedir um novo JWT (e consequentemente um novo Refresh token). Importante notar que ainda sim, por guardar um state no banco, esse token pode ser revogado direto nessa base se necessário (ex: se um usuário tiver esse dado capturado)
+
