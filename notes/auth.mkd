@@ -21,3 +21,145 @@ um token é um valor, normalmente enviado pelo backend, que deve ser referenciad
 
 * Já o Refresh Token normalmente é enviado junto com o JWT no momento do login, esse token é responsável por ser uma forma mapeada de fazer o processo de refresh, apenas uma vez. Sendo assim esse token é guardado em banco, tendo um tempo de expiração maior que o JWT, sendo que ele é revogado no momento que é usado para pedir um novo JWT (e consequentemente um novo Refresh token). Importante notar que ainda sim, por guardar um state no banco, esse token pode ser revogado direto nessa base se necessário (ex: se um usuário tiver esse dado capturado)
 
+
+## Persistindo dados na aplicação
+
+Necessário para quando o usuário sai da aplicação e volta (mesmo um simples F5) dessa forma, não é necessário que o user log toda vez que for para a página, guardando essas informações já por padrão de alguma forma. Podendo reaproveitar dentro de um tempo X.
+
+- sessionStorage: ele não fica disponível em outra sessão, somente servindo dentro daquela sessão da aplicação. Então, caso o usuário fechar o navegador essa sessionStorage é perdido. 
+
+- localStorage: ele mantem os dados normalmente, porém tem uma má integração com o next, pois o localStorage é um processo somente DO BROWSER, sendo assim caso escolher isso usando Next, não é possível pegar esses valores na sua camada backend.
+
+- cookies: formas de armazenamento que podem ser usadas tanto pelo lado browser como pelo lado do servidor, porém tomando alguns cuidados com segurança de dados.
+
+### Guardando informações nos Cookies
+
+Primeiro, é importante notar que existe uma infinidade de formas de se trabalhar com cookies, desde formas nativas até libs das mais variadas. O recomendado e que será usado neste caso é o Nookies, uma lib usada para facilitar esse processo e com integração simples com NextJS
+
+#### utilizando o *setCookie()*
+
+O setCookie tem como primeiro valor um context, que deve ser passado apenas para casos de setCookie pelo backend, quando é utilizado via front é definido como *undefined* por padrão
+
+Como segundo e terceiro argumentos recebe a key e o value do cookie, sendo que essa key é interessante que tenha o nome da aplicação, ou que tenha algo que a deixe com um nome mais único (o mais comum é utilizar `nomeDaAplicação`.`keyName`)
+
+E como último parametro é passado um objeto com parametros adicionais, interessante colocar uma maxAge (tempo que esse cookie vai expirar) e um path (em que rota esse cookie vai ser acessível). Importante notar que esse maxAge não precisa ser um tempo pequeno ou ser o tempo de expiração do token, pois isso é feito pelo próprio backend (no curso foi definido como 30dias por exemplo). Já o path, pode ser usado para determinar apenas algumas rotas como podendo acessar um cookie, sendo que caso queira ser definido como global pode ser usado o '/'.
+
+Ex: setCookies(undefined, 'application.token', token, {
+    maxAge: 60 * 60 * 24 * 30 // 30 days,
+    path: '/',
+})
+
+### Recuperando dados de autenticação
+
+Em casos onde os dados são estáticos (não tem chance de mudança) existe a possibilidade de pagar alguns dos dados de login diretamente pelo front sem precisar fazer a requisição para o backend.
+Porém, o mais comum é que no primeiro momento de entrada na aplicação seja feito um get com os dados do usuário, definindo como payload o token nos headers. Para isso pode ser usado o useEffect, visto que ele pode ser usado para função no primeiro momento.
+
+#### Pegando os Cookies para utilizar nos headers
+
+Nas configurações de api do axios, é possível adicionar o cookie a partir do parseCookies(), que é uma função do nookies, utilizada para recuperação dos cookies.
+Neste caso, caso exista o cookie ele vai ser adicionado, caso não exista ele permanece vazio.
+
+Sendo que no caso do momento do login é necessário que esse token seja definido, pois no começo da aplicação ele não existia até ser colocado. (isso pode ser feito atravez do objeto api do axios)
+
+#### Utilização de Refresh Token
+
+O axios tem uma funcionalidade chamada interceptors essa funcionalidade faz com que requisições ou respostas podem ser pegas no "meio do caminho". Dessa forma é possível fazer regras de negócio antes ou depois do comando ser feito. Isso é feito através do *api.interceptors.response.use()*.
+
+Importante notar que esse comando recebe duas funções, a primeira para caso de sucesso e outra para caso de falha, sendo que em ambos os casos existe é recebido o objeto de response/request, sendo que para o caso do caminho do erro, existe um objeto próprio do tipo *AxiosError*
+
+Sendo que então, após fazer a função com o refresh token é só trocar o valor do authToken e do refreshToken, conforme recebido.
+
+#### Fila de requisições com Axios
+
+Utilizado para que seja criada uma fila com todas as requisições que falharam e com todas as requisições que ainda não foram feitas. Dessa forma é feito um "pause" nas requisições atuais, esperando até que isso termine para seguir a fila. Dessa forma é possível que uma execução seja feito antes desses itens.
+
+Esse tipo de estratégia é útil, por exemplo, quando se quer criar uma fila de execuções após fazer uma função de refreshToken, dessa forma retormando tudo que foi executado e não executando mais nada nesse intervalo.
+
+Exemplo de code para isso:
+
+typescript
+```
+    api.interceptors.response.use(response => response, (error: AxiosError) => {
+        if (error.response.status === 401) {
+            if (error.response.data?.code === 'token.expired') {
+            cookies = parseCookies();
+            const { 'dashgo.refreshToken': refreshToken } = cookies;
+            const originalConfig = error.config;
+
+            if (!isRefreshing) {
+                isRefreshing = true;
+
+                api.post('/refresh', {
+                refreshToken
+                }).then(response => {
+                const { token, refreshToken } = response.data;
+        
+                setCookie(undefined, 'dashgo.token', token, {
+                    maxAge: 60 * 60 * 24 * 30, // 30 days
+                    path: '/',
+                });
+
+                setCookie(undefined, 'dashgo.refreshToken', refreshToken, {
+                    maxAge: 60 * 60 * 24 * 30, // 30 days
+                    path: '/',
+                });
+
+                api.defaults.headers['Authorization'] = `Bearer ${token}`;
+                
+                failedRequestsQueue.forEach(request => request.onSuccess(token))
+                failedRequestsQueue = [];
+                }).catch(err => {
+                failedRequestsQueue.forEach(request => request.onFailure(err));
+                failedRequestsQueue = [];
+                }).finally(() => {
+                isRefreshing = false;
+                })
+            }
+            
+            return new Promise((resolve, refect) => {
+                failedRequestsQueue.push({
+                onSuccess: (token: string) => {
+                    originalConfig.headers['Authorization'] = `Bearer ${token}`;
+                    resolve(api(originalConfig));
+                },
+                onFailure: (err: AxiosError) => {
+                    refect(err);
+                },
+                })
+            })
+            } else {
+            // logout
+            }
+        }
+    })
+```
+
+#### Processo de logout
+
+feito em casos de problema de autenticação que não sejam do tipo "token expired", neste casos é definido que o usuário está deslogado e é feito um redirect para a página de login.
+
+Além disso, importante também notar que para isso é necessário deletar os cookies existentes, visto que eles estão desatualizados.
+
+Quando usando a estratégia de interceptor do axios é importante também definir o que o interceptor deve fazer no caso de erro 401 que não seja token expired. Pois nesses casos muitas vezes será quando vai ser necessário fazer o processo de logout e redirect.
+
+Além disso, quando usando um interceptor, em caso de erro no final do processo é sempre importante definir um Promise.reject(error), dessa forma ele segue com o processo de promise sem ter um erro de unhandling (pois caso essa promise não for retornada o interceptor não sabe o que retornar).
+
+## SSR na autenticação
+
+É possível usar o SSR para fazer toda a parte de validação, desde pegar dados do usuário logado, até mesmo fazer o processo de redirect caso isso não seja satisfeito. Com a vantagem de não precisar ter um loading dentro da página para esse processo.
+
+Importante notar que nesse caso, como estamos lidando com a camada backend da aplicação então temos um context, que é passado para todas as funções do nookies já vistas.
+
+Interessante falar que esse ctx tem dentro deles todas as informações da requisição feita (do ambiente que está fazendo a chamada) então é através desse ctx que podemos ter os cookies do frontend. Sendo apenas necessário usar o parseCookies(ctx) para pegar esses cookies e usá-los no SSR.
+
+Importante notar que como as funções do nookies precisam de context para casos de uso em server, logo esse context deve ser passado para utilizar essas funções no createAPIClient, visto que terá que se criar uma instancia de api com essa informação (de ctx)
+
+### Função de validação de acesso
+
+Visto que o acesso é algo que deve ser tratado em cada página, é interessante que exista algo desacoplado das pages que seja capaz de realizar esse processo.
+
+Dessa forma, no getServerSideProps é possível criar uma highOrderFunction, que nada mais faz do que receber uma funções (de como deve ser o SSR em caso de success) e retorna um redirect caso ele fique no processo de validação
+
+Dessa forma é possível ter o processo de validação de forma abstraida!!!
+
+Sendo que, é importante existirem dois casos, uma função para caso de usuários que não precisam estar logados (rota pública como de login) e uma para usuários logados (áreas privadas da aplicação)
