@@ -163,3 +163,35 @@ Dessa forma, no getServerSideProps é possível criar uma highOrderFunction, que
 Dessa forma é possível ter o processo de validação de forma abstraida!!!
 
 Sendo que, é importante existirem dois casos, uma função para caso de usuários que não precisam estar logados (rota pública como de login) e uma para usuários logados (áreas privadas da aplicação)
+
+## Permissões
+
+É interessante, quando se tratando de permissões, sempre que o usuário acessar a aplicação recuperar esses dados, visto que dessa forma temos as informações o mais atualizadas possível. Dessa forma tendo a certeza de que as Permissões desse user estão corretas.
+
+Nesse ponto, é interessante criar um hook, utilizado para o processo de determinar se o usuário tem as permissões ou roles necessárias para o processo. Sendo que no caso de permissões, na maior parte dos casos é necessário que o user tenha todas as permissões listadas. Já no caso de Role é necessário que o usuário tenha uma das roles listadas para poder acessar, sendo que qualquer um dessa lista passada poderá acessar isso.
+
+Importante notar que para questões de segurança da aplicação, é necessária que a validação de métricas seja feita também no backend, de tal forma que o usuário, no caso de não ter as permissões necessárias seja impedido de fazer algum processo. Sendo que a validação no front é importante sim para block de rotas e questões visuais, mas mesmo assim existem processos necessários no back também.
+
+### Componente de Permissões
+
+É uma estratégia interessante para limitar os elementos que um usuário pode ver através das permissões. Dessa forma é possível bloquear parte da view de um usuário com base nessa permissão. Impedindo que ele veja os componentes children daquele Can component. Sendo uma estratégia útil para diminuir o código necessário para esse processo.
+
+### Block de rota por permissions
+
+Como já era utilizada uma estratégia de criar uma high order function para o processo de SSR e auth, é possível que nessa mesma função seja feito todo o processo de Permissões, através de um outro parâmetro options que receba essas permissions e roles.
+
+Dessa forma é possível utilizar o mesmo elemento para ambos, sendo que é possível ainda pegar algo como o jwt-decode para pegar os dados do token e utilizar eles para ver as permissões do usuário, algo útil para não precisar esperar uma chamada, ainda mais visto que essas permissões já se encontram nesse elemento!!
+
+Ainda é importante se falar em como lidar caso o usuário não tenha acesso a página em si, é interessante mandar o usuário novamente para uma page que ele tenha acesso, ou ainda definir como retorno um notFound, dessa forma ele ira para a page 404, recebendo o aviso que a página não foi encontrada.
+
+Esse tipo de estratégia faz com que determinadas rotas sejam seguras e inacessíveis, tendo acesso esclusivo a partir das permissões do user que se encontram no seu próprio token, sem nem ser necessário mandar essa informação para o backend.
+
+## broadcast logout
+
+Uma estratégia usada para que, caso o usuário tenha várias abas da mesma aplicação aberta, caso fizer o logout em uma todas sejam deslogadas automáticamente.
+
+Para isso é utilizado um recurso que se chama *BroadcastChannel* que nada mais faz do que servir de canal de comunicação entre diferentes instancias de uma mesma aplicação no browser. Dessa forma podendo ser comunicada diretamente, sem necessitar de outros elementos ou gambiarras.
+
+Importante notar que na hora de se utilizar um BroadcastChannel é necessário definir um nome para esse channel assim que vai se criar essa instancia. Além disso, para enviar uma mensagem é usado o channel.postMessage() (passando a mensagem em si) e para receber essa informação é usado o channel.onmessage, que recebe uma função que é executada quando uma mensagem é recebida.
+
+E para saber qual o tipo de mensagem que está sendo passada essa informação fica dentro do Data dessa mensagem. Importante ainda notar que isso pode ser usado até mesmo para outros tipos de metodos, como redirects, signIn, signOut, entre outras funções que esse processo seja útil!
